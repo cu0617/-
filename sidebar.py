@@ -3,10 +3,10 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 1. 페이지 설정 및 배경 최적화
+# 1. 페이지 설정
 st.set_page_config(page_title="전기 설비 검침 시스템", layout="centered")
 
-# 배경색 및 UI 숨기기 CSS
+# 배경색 및 UI 숨기기
 st.markdown("""
     <style>
     #MainMenu, footer, header {visibility: hidden;}
@@ -16,27 +16,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 데이터베이스(파일) 관련 함수 ---
 DB_FILE = "usage_data.csv"
-
-def save_to_csv(date, category, data_dict):
-    """입력된 딕셔너리 데이터를 CSV 파일에 저장하는 함수"""
-    # 기존 데이터 로드
-    if os.path.exists(DB_FILE):
-        df = pd.read_csv(DB_FILE)
-    else:
-        df = pd.DataFrame()
-
-    # 신규 데이터 정리
-    new_data = {"검침일자": date, "구분": category}
-    new_data.update(data_dict) # 상세 검침값 추가
-    
-    new_df = pd.DataFrame([new_data])
-    
-    # 데이터 합치기 및 저장
-    df = pd.concat([df, new_df], ignore_index=True)
-    df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-    st.success(f"✅ {date} {category} 기록이 안전하게 서버 파일로 저장되었습니다!")
 
 def main():
     # 2. 사이드바 구성
@@ -45,56 +25,56 @@ def main():
         st.subheader("메뉴 선택")
         
         menu_options = {
-            "계량기 검침": "electricity_meter",
+            "계량기 검침": "meter",
             "MOF 검침": "mof",
-            "자고객 검침": "second_meter",
+            "자고객 검침": "second",
             "인버터 운전일지": "inverter",
-            "📊 데이터 조회/다운로드": "view_db"  # DB 관리 메뉴 추가
+            "📊 데이터 조회/다운로드": "view_db"
         }
         choice = st.radio("메뉴를 선택하세요", list(menu_options.keys()))
         
         st.markdown("---")
-        
-        # 공통 날짜 선택
         selected_date = st.date_input("🗓️ 검침 일자 선택", datetime.now())
         date_str = selected_date.strftime('%Y-%m-%d')
-        
-        st.info("💡 인쇄 시 브라우저 설정에서 '배경 그래픽'을 체크해 주세요.")
 
-   # 3. 메뉴 선택에 따른 화면 표시
-if choice == "📊 데이터 조회/다운로드":
-    st.title("📋 누적 검침 데이터베이스")
-    
-    # 현재 서버에 파일이 있는지 확인
-    if os.path.exists(DB_FILE):
-        view_df = pd.read_csv(DB_FILE)
-        st.write(f"현재 총 {len(view_df)}개의 데이터가 저장되어 있습니다.") # 데이터 개수 표시
-        st.dataframe(view_df, use_container_width=True) # 표 보여주기
-        
-        # 다운로드 버튼이 작동하는지 확인
-        csv = view_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 엑셀로 내보내기", csv, "data.csv", "text/csv")
-    else:
-        st.error("⚠️ 아직 저장된 파일이 없습니다. 입력 후 [저장] 버튼을 눌러주세요.")
+    # 3. 메뉴 선택에 따른 화면 표시 (들여쓰기 주의!)
+    if choice == "📊 데이터 조회/다운로드":
+        st.title("📋 누적 검침 데이터베이스")
+        if os.path.exists(DB_FILE):
+            view_df = pd.read_csv(DB_FILE)
+            st.dataframe(view_df, use_container_width=True)
+            csv = view_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 엑셀(CSV) 다운로드", csv, "검침기록.csv", "text/csv")
+        else:
+            st.info("저장된 데이터가 없습니다.")
 
-    else:
-        # 각 검침 페이지 로드
-        if choice == "계량기 검침":
-            try:
-                from electricity_meter import show_electricity_meter
-                # 데이터를 반환받을 수 있도록 구조를 살짝 변경할 수 있습니다.
-                show_electricity_meter(date_str)
-            except ImportError: st.warning("파일을 찾을 수 없습니다.")
+    elif choice == "계량기 검침":
+        try:
+            from electricity_meter import show_electricity_meter
+            show_electricity_meter(date_str)
+        except Exception as e:
+            st.error(f"파일 로드 오류: {e}")
 
-        elif choice == "MOF 검침":
-            try:
-                from mof import show_mof_detail
-                show_mof_detail(date_str)
-            except ImportError: st.warning("파일을 찾을 수 없습니다.")
+    elif choice == "MOF 검침":
+        try:
+            from mof import show_mof_detail
+            show_mof_detail(date_str)
+        except Exception as e:
+            st.error(f"파일 로드 오류: {e}")
 
-        # ... (자고객, 인버터 동일 구조)
+    elif choice == "자고객 검침":
+        try:
+            from second_meter import show_second_meter
+            show_second_meter(date_str)
+        except Exception as e:
+            st.error(f"파일 로드 오류: {e}")
+
+    elif choice == "인버터 운전일지":
+        try:
+            from inverter import show_inverter_log
+            show_inverter_log(date_str)
+        except Exception as e:
+            st.error(f"파일 로드 오류: {e}")
 
 if __name__ == "__main__":
     main()
-
-
